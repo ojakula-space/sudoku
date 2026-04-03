@@ -7,7 +7,7 @@
     <style>
         :root {
             --bg: #f0f2f5; --card: #ffffff; --text: #34495e; --border: #34495e;
-            --btn-blue: #3498db; --btn-green: #2ecc71; --btn-orange: #f39c12; --fixed-bg: #f1f3f5;
+            --btn-blue: #3498db; --btn-green: #2ecc71; --btn-orange: #f39c12; --btn-purple: #9b59b6; --fixed-bg: #f1f3f5;
         }
         body.dark-mode {
             --bg: #1a1a1a; --card: #2c2c2c; --text: #ecf0f1; --border: #7f8c8d;
@@ -34,14 +34,13 @@
         .difficulty-selector button { flex: 1; padding: 8px; font-size: 0.8rem; background: #bdc3c7; color: white; border: none; border-radius: 5px; cursor: pointer; }
         .difficulty-selector button.active { background: var(--btn-blue); }
         
-        .hint-bar { margin: 10px 0; font-weight: bold; color: var(--btn-orange); }
-        
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
         .main-btn { padding: 12px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; }
         .btn-new { background: var(--btn-blue); }
         .btn-check { background: var(--btn-green); }
+        .btn-save { background: var(--btn-purple); grid-column: span 2; }
         .btn-hint { background: var(--btn-orange); grid-column: span 2; }
-        .btn-hint:disabled { background: #bdc3c7; cursor: not-allowed; opacity: 0.6; }
+        
         .theme-toggle { background: none; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 1.2rem; }
     </style>
 </head>
@@ -60,12 +59,11 @@
 
         <div id="grid"></div>
 
-        <div class="hint-bar">Vihjeid alles: <span id="hint-count">6</span></div>
-
         <div class="controls">
             <button class="main-btn btn-new" onclick="confirmNewGame()">Uus mäng</button>
             <button class="main-btn btn-check" onclick="checkWin()">Kontrolli</button>
-            <button id="hint-btn" class="main-btn btn-hint" onclick="getHint()">Anna vihje</button>
+            <button class="main-btn btn-save" onclick="manualSave()">💾 Salvesta mäng</button>
+            <button id="hint-btn" class="main-btn btn-hint" onclick="getHint()">Anna vihje (<span id="hint-count">6</span>)</button>
         </div>
     </div>
 
@@ -86,7 +84,7 @@
             initGame();
         }
 
-        function saveGameState() {
+        function manualSave() {
             const inputs = Array.from(document.querySelectorAll('input')).map(i => ({
                 v: i.value,
                 f: i.classList.contains('fixed'),
@@ -99,6 +97,7 @@
                 diff: currentDiff
             };
             localStorage.setItem('sudoku-state', JSON.stringify(state));
+            alert("Mäng on salvestatud!");
         }
 
         function loadGameState() {
@@ -115,18 +114,16 @@
             
             const g = document.getElementById('grid'); g.innerHTML = '';
             state.inputs.forEach((data, index) => {
-                const r = Math.floor(index / 9);
-                const c = index % 9;
                 const i = document.createElement('input');
                 i.type = 'number'; i.inputMode = 'numeric';
                 i.value = data.v;
                 if (data.f) { i.readOnly = true; i.classList.add('fixed'); }
                 if (data.h) { i.readOnly = true; i.classList.add('hint-cell'); }
-                i.dataset.r = r; i.dataset.c = c;
+                i.dataset.r = Math.floor(index / 9);
+                i.dataset.c = index % 9;
                 i.oninput = function() { 
                     if(this.value.length > 1) this.value = this.value.slice(0,1);
                     this.classList.remove('wrong'); 
-                    saveGameState();
                 };
                 g.appendChild(i);
             });
@@ -135,7 +132,7 @@
         }
 
         function confirmNewGame() {
-            if (confirm("Kas oled kindel? Praegune mäng kaob.")) initGame();
+            if (confirm("Kas alustad uut mängu? (Salvestamata progress kaob)")) initGame();
         }
 
         function initGame() {
@@ -153,12 +150,10 @@
                     i.oninput = function() { 
                         if(this.value.length > 1) this.value = this.value.slice(0,1);
                         this.classList.remove('wrong'); 
-                        saveGameState();
                     };
                     g.appendChild(i);
                 }
             }
-            saveGameState();
         }
 
         function getHint() {
@@ -171,7 +166,6 @@
             randomInput.classList.add('hint-cell');
             hintsLeft--;
             updateHintUI();
-            saveGameState();
         }
 
         function updateHintUI() {
@@ -211,7 +205,10 @@
                 } else { i.classList.remove('wrong'); }
             });
             if (anyWrong) alert("Mõni number on valesti!");
-            else if (allFilled) { alert("VÕIT! Täiuslik lahendus!"); localStorage.removeItem('sudoku-state'); }
+            else if (allFilled) { 
+                alert("VÕIT!"); 
+                localStorage.removeItem('sudoku-state'); 
+            }
             else alert("Seni on kõik õige!");
         }
 
