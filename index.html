@@ -71,13 +71,36 @@
             for(let i=0; i<9; i++) if(b[r][i]===n || b[i][c]===n || b[3*Math.floor(r/3)+Math.floor(i/3)][3*Math.floor(c/3)+i%3]===n) return false;
             return true;
         }
+        
         function checkWin() {
-            const is = document.querySelectorAll('input'); let w = true;
-            is.forEach(i => {
-                if(parseInt(i.value) !== sol[i.dataset.r][i.dataset.c]) { if(!i.readOnly) i.classList.add('wrong'); w = false; }
+            const inputs = document.querySelectorAll('input');
+            let anyWrong = false;
+            let allFilled = true;
+
+            inputs.forEach(i => {
+                const val = parseInt(i.value);
+                if (!i.value) {
+                    allFilled = false;
+                    return; 
+                }
+
+                if (val !== sol[i.dataset.r][i.dataset.c]) {
+                    if (!i.readOnly) i.classList.add('wrong');
+                    anyWrong = true;
+                } else {
+                    i.classList.remove('wrong');
+                }
             });
-            if(w) alert("Võit!"); else alert("Viga sees!");
+
+            if (anyWrong) {
+                alert("Mõni number on valesti!");
+            } else if (allFilled) {
+                alert("VÕIT! Täiuslik lahendus!");
+            } else {
+                alert("Seni on kõik õige! Jätka samas vaimus.");
+            }
         }
+        
         initGame();
     </script>
 </body>
