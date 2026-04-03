@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sudoku Master</title>
+    <title>Sudoku Master Pro</title>
     <style>
         :root {
             --bg: #f0f2f5; --card: #ffffff; --text: #34495e; --border: #34495e;
@@ -49,7 +49,7 @@
     <div class="game-container">
         <div class="top-bar">
             <h2 style="margin:0;">Sudoku Master</h2>
-            <button class="theme-toggle" title="Vaheta teemat" onclick="toggleTheme()">🌓</button>
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
         </div>
 
         <div class="difficulty-selector">
@@ -63,7 +63,7 @@
         <div class="hint-bar">Vihjeid alles: <span id="hint-count">6</span></div>
 
         <div class="controls">
-            <button class="main-btn btn-new" onclick="initGame()">Uus mäng</button>
+            <button class="main-btn btn-new" onclick="confirmNewGame()">Uus mäng</button>
             <button class="main-btn btn-check" onclick="checkWin()">Kontrolli</button>
             <button id="hint-btn" class="main-btn btn-hint" onclick="getHint()">Anna vihje</button>
         </div>
@@ -74,13 +74,68 @@
         let currentDiff = 0.5;
         let hintsLeft = 6;
 
-        function toggleTheme() { document.body.classList.toggle('dark-mode'); }
+        function toggleTheme() { 
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('sudoku-darkmode', document.body.classList.contains('dark-mode'));
+        }
 
         function setDiff(val, id) {
             currentDiff = val;
             document.querySelectorAll('.difficulty-selector button').forEach(b => b.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             initGame();
+        }
+
+        function saveGameState() {
+            const inputs = Array.from(document.querySelectorAll('input')).map(i => ({
+                v: i.value,
+                f: i.classList.contains('fixed'),
+                h: i.classList.contains('hint-cell')
+            }));
+            const state = {
+                sol: sol,
+                inputs: inputs,
+                hints: hintsLeft,
+                diff: currentDiff
+            };
+            localStorage.setItem('sudoku-state', JSON.stringify(state));
+        }
+
+        function loadGameState() {
+            const savedTheme = localStorage.getItem('sudoku-darkmode');
+            if (savedTheme === 'true') document.body.classList.add('dark-mode');
+
+            const saved = localStorage.getItem('sudoku-state');
+            if (!saved) return false;
+
+            const state = JSON.parse(saved);
+            sol = state.sol;
+            hintsLeft = state.hints;
+            currentDiff = state.diff;
+            
+            const g = document.getElementById('grid'); g.innerHTML = '';
+            state.inputs.forEach((data, index) => {
+                const r = Math.floor(index / 9);
+                const c = index % 9;
+                const i = document.createElement('input');
+                i.type = 'number'; i.inputMode = 'numeric';
+                i.value = data.v;
+                if (data.f) { i.readOnly = true; i.classList.add('fixed'); }
+                if (data.h) { i.readOnly = true; i.classList.add('hint-cell'); }
+                i.dataset.r = r; i.dataset.c = c;
+                i.oninput = function() { 
+                    if(this.value.length > 1) this.value = this.value.slice(0,1);
+                    this.classList.remove('wrong'); 
+                    saveGameState();
+                };
+                g.appendChild(i);
+            });
+            updateHintUI();
+            return true;
+        }
+
+        function confirmNewGame() {
+            if (confirm("Kas oled kindel? Praegune mäng kaob.")) initGame();
         }
 
         function initGame() {
@@ -93,36 +148,30 @@
                 for(let c=0; c<9; c++) {
                     const i = document.createElement('input');
                     i.type = 'number'; i.inputMode = 'numeric';
-                    if(Math.random() < currentDiff) { 
-                        i.value = sol[r][c]; i.readOnly = true; i.classList.add('fixed'); 
-                    }
+                    if(Math.random() < currentDiff) { i.value = sol[r][c]; i.readOnly = true; i.classList.add('fixed'); }
                     i.dataset.r = r; i.dataset.c = c;
                     i.oninput = function() { 
                         if(this.value.length > 1) this.value = this.value.slice(0,1);
                         this.classList.remove('wrong'); 
+                        saveGameState();
                     };
                     g.appendChild(i);
                 }
             }
+            saveGameState();
         }
 
         function getHint() {
             if (hintsLeft <= 0) return;
-            const inputs = Array.from(document.querySelectorAll('input:not(.fixed):not(.hint-cell)'))
-                               .filter(i => i.value == "");
-            
+            const inputs = Array.from(document.querySelectorAll('input:not(.fixed):not(.hint-cell)')).filter(i => i.value == "");
             if (inputs.length === 0) return;
-
             const randomInput = inputs[Math.floor(Math.random() * inputs.length)];
-            const r = randomInput.dataset.r;
-            const c = randomInput.dataset.c;
-            
-            randomInput.value = sol[r][c];
+            randomInput.value = sol[randomInput.dataset.r][randomInput.dataset.c];
             randomInput.readOnly = true;
             randomInput.classList.add('hint-cell');
-            
             hintsLeft--;
             updateHintUI();
+            saveGameState();
         }
 
         function updateHintUI() {
@@ -139,16 +188,10 @@
         }
 
         function solve(b) {
-            for(let r=0; r<9; r++) {
-                for(let c=0; c<9; c++) {
-                    if(b[r][c] === 0) {
-                        let ns = [1,2,3,4,5,6,7,8,9].sort(() => Math.random()-0.5);
-                        for(let n of ns) {
-                            if(isValid(b,r,c,n)) { b[r][c]=n; if(solve(b)) return true; b[r][c]=0; }
-                        }
-                        return false;
-                    }
-                }
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(b[r][c] === 0) {
+                let ns = [1,2,3,4,5,6,7,8,9].sort(() => Math.random()-0.5);
+                for(let n of ns) if(isValid(b,r,c,n)) { b[r][c]=n; if(solve(b)) return true; b[r][c]=0; }
+                return false;
             }
             return true;
         }
@@ -164,18 +207,15 @@
             inputs.forEach(i => {
                 if (!i.value) { allFilled = false; return; }
                 if (parseInt(i.value) !== sol[i.dataset.r][i.dataset.c]) {
-                    if (!i.readOnly || i.classList.contains('hint-cell')) {
-                        i.classList.add('wrong');
-                        anyWrong = true;
-                    }
+                    if (!i.readOnly || i.classList.contains('hint-cell')) { i.classList.add('wrong'); anyWrong = true; }
                 } else { i.classList.remove('wrong'); }
             });
             if (anyWrong) alert("Mõni number on valesti!");
-            else if (allFilled) alert("VÕIT! Täiuslik lahendus!");
+            else if (allFilled) { alert("VÕIT! Täiuslik lahendus!"); localStorage.removeItem('sudoku-state'); }
             else alert("Seni on kõik õige!");
         }
 
-        initGame();
+        if (!loadGameState()) initGame();
     </script>
 </body>
 </html>
